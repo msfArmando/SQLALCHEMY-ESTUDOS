@@ -28,9 +28,8 @@ stmt = select(production.columns["Field"],
               production.columns["Others fluids injection (m³)"]).where(production.c.State == "PB")
 
 with engine.connect() as conn:
-    dict_list = []
-    for row in conn.execute(stmt).all():
-        dict = row._mapping
-        dict_list.append(dict)
+    dict_list = [dict(row._mapping) for row in conn.execute(stmt).all()]
 
-    print(dict_list)
+    json_data = json.dumps(dict_list, default=str, ensure_ascii=False)
+
+    print(json_data)
