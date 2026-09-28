@@ -12,45 +12,54 @@ from sqlalchemy import (
     case,
     alias
 )
+from sqlalchemy.ext.asyncio import create_async_engine
+from asyncio import run
 
 DATABASE_URL = 'sqlite+pysqlite:///brazil_oil_production.sqlite'
 
-engine = create_engine(DATABASE_URL, echo=True)
-metadata_obj = MetaData()
+engine = create_async_engine(DATABASE_URL, echo=True)
 
-production = Table(
-    'production',
-    metadata_obj,
-    Column('Oil (m³)', Float),
-    Column('Condensate oil (m³)', Float),
-    autoload_with=engine,
-)
+async def main():
+    async with engine.connect() as conn:
 
-stmt = (
-    select(
-        case(
-            (production.columns['Basin'] == 'Santos', 'Charlie Brown Jr.'),
-            else_=production.columns['Basin']
-        ).label('Município'),
-        production.columns['State'].label('Estado'),
-        case(
-            (production.columns['Field'] == 'LULA', 'Ladrão'), else_=production.columns['Field']
-        ).label('Campo'),
-        production.columns['Installation'].label('Instalação'),
-        production.columns['Oil (m³)'],
-    )
-    .where(
-        and_(
-        production.c.State.in_(['SP', 'RJ']), production.columns['Oil (m³)'].is_not(None))
-    )
-    .order_by(desc(production.columns['Oil (m³)']))
-).limit(10000)
+        metadata_obj = MetaData()
 
-with engine.connect() as conn:
-    dictlist = []
-    for row in conn.execute(stmt).fetchall():
-        dictitem = dict(row._mapping.items())
-        dictlist.append(dictitem)
+        production = Table(
+            'production',
+            metadata_obj,
+            Column('Oil (m³)', Float),
+            Column('Condensate oil (m³)', Float),
+            autoload_with=engine,
+        )
 
-    with open('result.json', 'w', encoding='utf-8') as f:
-        f.write(json.dumps(dictlist, ensure_ascii=False))
+        stmt = (
+            select(
+                case(
+                    (production.columns['Basin'] == 'Santos', 'Charlie Brown Jr.'),
+                    else_=production.columns['Basin']
+                ).label('Município'),
+                production.columns['State'].label('Estado'),
+                case(
+                    (production.columns['Field'] == 'LULA', 'Ladrão'), else_=production.columns['Field']
+                ).label('Campo'),
+                production.columns['Installation'].label('Instalação'),
+                production.columns['Oil (m³)'],
+            )
+            .where(
+                and_(
+                production.c.State.in_(['SP', 'RJ']), production.columns['Oil (m³)'].is_not(None))
+            )
+            .order_by(desc(production.columns['Oil (m³)']))
+        ).limit(10000)
+
+
+        dictlist = []
+
+        for row in conn.execute(stmt).fetchall():
+            dictitem = dict(row._mapping.items())
+            dictlist.append(dictitem)
+
+        with open('result.json', 'w', encoding='utf-8') as f:
+            f.write(json.dumps(dictlist, ensure_ascii=False)) 
+
+run(main())
