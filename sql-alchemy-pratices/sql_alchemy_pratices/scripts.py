@@ -54,12 +54,19 @@ async def main():
 
 
         dictlist = []
-
-        for row in conn.execute(stmt).fetchall():
-            dictitem = dict(row._mapping.items())
-            dictlist.append(dictitem)
+        # Com conn begin, criando a possibilidade de realizar consultas atômicas, acabanco com a necessidade de criar várias conexões para cada consulta.
+        # Com o begin, é possível realizar N consultas, dentro de uma conexão. Se algo não sair como o esperado, ROLLBACK
+        with conn.begin():
+            for row in conn.execute(stmt).fetchall():
+                dictitem = dict(row._mapping.items())
+                dictlist.append(dictitem)
 
         with open('result.json', 'w', encoding='utf-8') as f:
             f.write(json.dumps(dictlist, ensure_ascii=False)) 
 
 run(main())
+
+
+
+#1788912000000
+#1790467200000
