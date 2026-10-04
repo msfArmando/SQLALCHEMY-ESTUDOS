@@ -1,106 +1,66 @@
 import json
 
-from sqlalchemy import (
-    MetaData,
-    Table,
-    and_,
-    create_engine,
-    desc,
-    select,
-    case,
-    func
-)
+from sqlalchemy import ForeignKey, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+
+# Criando classe base declarativa
 class Base(DeclarativeBase):
     pass
 
-class Production(Base):
-    __tablename__ = 'production'
-    row_id: Mapped[str] = mapped_column('ROWID', primary_key=True)
-    year: Mapped[int] = mapped_column('Year')
-    month: Mapped[int] = mapped_column('Month')
-    state: Mapped[str] = mapped_column('State')
-    basin: Mapped[str] = mapped_column('Basin')
-    field: Mapped[str] = mapped_column('Field')
-    well: Mapped[str] = mapped_column('Well')
-    environment: Mapped[str] = mapped_column('Environment')
-    installation: Mapped[str] = mapped_column('Installation')
-    oil: Mapped[float] = mapped_column('Oil (m³)')
-    condensate_oil: Mapped[float] = mapped_column('Condensate oil (m³)')
-    associated_petroleum_gas: Mapped[float] = mapped_column('Associated petroleum gas (Mm³)')
-    non_associated_petroleum_gas: Mapped[float] = mapped_column('Non-associated petroleum gas (Mm³)')
-    water: Mapped[float] = mapped_column('Water (m³)')
-    gas_injection: Mapped[float] = mapped_column('Gas injection (Mm³)')
-    secondary_recovery_water_injection: Mapped[float] = mapped_column('Secondary recovery water injection (m³)')
-    wastewater_injection: Mapped[float] = mapped_column('Wastewater injection (m³)')
-    co_injection: Mapped[float] = mapped_column('CO2 injection (Mm³)')
-    nitrogen_injection: Mapped[float] = mapped_column('Nitrogen injection (Mm³)')
-    steam_injection: Mapped[float] = mapped_column('Steam injection (t)')
-    polymer_injection: Mapped[float] = mapped_column('Polymer injection (m³)')
-    others_fluids_injection: Mapped[float] = mapped_column('Others fluids injection (m³)')
-     
-DATABASE_URL = 'sqlite+pysqlite:///brazil_oil_production.sqlite'
+
+# Criando classes mapeadas das tabelas
+class Artist(Base):
+    __tablename__ = 'artists'
+    artist_id: Mapped[int] = mapped_column('artist_id', primary_key=True)
+    name: Mapped[str] = mapped_column('name')
+
+
+class Albums(Base):
+    __tablename__ = 'albums'
+    album_id: Mapped[int] = mapped_column('album_id', primary_key=True)
+    artist_id: Mapped[str] = mapped_column(ForeignKey('artists.artist_id'))
+    title: Mapped[str] = mapped_column('title')
+
+
+class Genre(Base):
+    __tablename__ = 'genres'
+    genre_id: Mapped[int] = mapped_column('genre_id', primary_key=True)
+    name: Mapped[str] = mapped_column('name')
+
+
+class Tracks(Base):
+    __tablename__ = 'tracks'
+    track_id: Mapped[int] = mapped_column('track_id', primary_key=True)
+    name: Mapped[str] = mapped_column('name')
+    album_id: Mapped[int] = mapped_column(ForeignKey('albums.album_id'))
+    genre_id: Mapped[int] = mapped_column(ForeignKey('genres.genre_id'))
+    milliseconds: Mapped[int] = mapped_column('milliseconds')
+    unit_price: Mapped[float] = mapped_column('unit_price')
+
+
+# Criando engine de conexão
+DATABASE_URL = 'sqlite+pysqlite:///chinook_sample.sqlite'
 
 engine = create_engine(DATABASE_URL, echo=True)
 
+# Iniciando conexão
 with engine.connect() as conn:
-
-    # production = Table(
-    #     'production',
-    #     MetaData(),
-    #     autoload_with=engine,
-    # )
-
-    # stmt = (
-    #     select(
-    #         # case(
-    #         #     (production.columns['Basin'] == 'Santos', 'Charlie Brown Jr.'),
-    #         #     else_=production.columns['Basin']
-    #         # ).label('Município'),
-    #         #production.columns['State'].label('Estado'),
-    #         case(
-    #             (production.columns['Field'] == 'LULA', 'Ladrão'), else_=production.columns['Field']
-    #         ).label('Campo'),
-    #         #production.columns['Installation'].label('Instalação'),
-    #         func.sum(production.columns['Oil (m³)']).label("Soma total"),
-    #     )
-    #     .where(
-    #         and_(
-    #         production.c.State.in_(['SP', 'RJ']), production.columns['Oil (m³)'].is_not(None))
-    #     ).group_by(production.columns['Field'])
-    #     .order_by(desc(production.columns['Oil (m³)']))
-    # ).limit(10000)
-
     stmt = (
-        select(
-            #case(
-            #    (Production.basin == 'Santos', 'Charlie Brown Jr.'),
-            #    else_=Production.basin
-            #).label('Municipio'),
-            #Production.state.label('Estado'),
-            case(
-                (Production.field == 'Lula', 'Ladrão'), else_=Production.field
-            ).label('Campo'),
-            #Production.installation.label('Instalação'),
-            func.sum(Production.oil.label('Soma Total').label('Soma total'))
-        )
-        .where(
-            and_(
-                Production.state.in_(['SP', 'RJ']), Production.oil.is_not(None)
-            )
-        ).group_by(Production.field)
-        .order_by(desc(Production.oil))
-    ).limit(1000)
+        select(Tracks.name, Genre.name, Artist.name, Albums.title)
+        .join(Albums, Artist.artist_id == Albums.artist_id)
+        .join(Tracks, Albums.album_id == Tracks.album_id)
+        .join(Genre, Tracks.genre_id == Genre.genre_id)
+        .where(Albums.title == 'Machine Head')
+    )
 
+    dictlist: list[dict] = []
 
-    dictlist = []
-    # Com conn begin, criando a possibilidade de realizar consultas atômicas, acabanco com a necessidade de criar várias conexões para cada consulta.
-    # Com o begin, é possível realizar N consultas, dentro de uma conexão. Se algo não sair como o esperado, ROLLBACK
+    # Criando lista de dicionários com o resultado da consulta
     with conn.begin():
         for row in conn.execute(stmt).fetchall():
             dictitem = dict(row._mapping.items())
             dictlist.append(dictitem)
 
     with open('result.json', 'w', encoding='utf-8') as f:
-        f.write(json.dumps(dictlist, ensure_ascii=False)) 
+        f.write(json.dumps(dictlist, ensure_ascii=False))
