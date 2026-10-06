@@ -4,7 +4,7 @@ from sqlalchemy import ForeignKey, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
-# Criando classe base declarativa
+# Creating declarative base class
 class Base(DeclarativeBase):
     pass
 
